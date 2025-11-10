@@ -1,0 +1,274 @@
+{
+  "name": "amh-eng-tg-bot",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f48d3874-456f-4b92-a58c-4043feaa05df",
+      "name": "Telegram Trigger",
+      "webhookId": "1cd6ff5a-9edd-484e-b035-aed46c945351",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract message data\nconst message = $input.item.json.message;\nconst chatId = message.chat.id;\nconst messageId = message.message_id;\n\n// Initialize output object\nlet output = {\n  chatId: chatId,\n  messageId: messageId,\n  messageType: 'unknown'\n};\n\n// Check for text message\nif (message.text) {\n  const hasAmharic = /[\\u1200-\\u137F]/.test(message.text);\n  output.messageType = 'text';\n  output.text = message.text;\n  output.sourceLang = hasAmharic ? 'Amharic' : 'English';\n  output.targetLang = hasAmharic ? 'English' : 'Amharic';\n}\n\n// Check for photo message\nelse if (message.photo && message.photo.length > 0) {\n  const photo = message.photo[message.photo.length - 1]; // Get largest photo\n  output.messageType = 'photo';\n  output.fileId = photo.file_id;\n  output.sourceLang = 'auto-detect';\n  output.targetLang = 'English'; // Default for images\n}\n\n// Check for voice message\nelse if (message.voice) {\n  output.messageType = 'voice';\n  output.fileId = message.voice.file_id;\n  output.duration = message.voice.duration;\n  output.sourceLang = 'auto-detect';\n  output.targetLang = 'English'; // Will detect after transcription\n}\n\nreturn { json: output };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "96a113f6-add8-4560-a358-4a4aa90c491a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"Translate the following text from {{ $json.sourceLang }} to {{ $json.targetLang }}. Only provide the translation, no explanations:\\n\\n{{ $json.text }}\"\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.3,\n    \"maxOutputTokens\": 500\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        752,
+        -96
+      ],
+      "id": "dd7b5341-3727-4727-b2e8-58335913db51",
+      "name": "Text Translation Branch",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "elJMLjeple6DNATe",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "=text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "115ee3ba-a2be-4805-bbe3-7591779dfa97"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a655a072-3c00-4708-8f19-746a5ddb3ce5",
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "photo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "photo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "143079d1-acb9-4027-9a94-405ad13fb804",
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "voice",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "voice"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a844505f-3030-4ecf-82d9-245d43222dce",
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        400,
+        -16
+      ],
+      "id": "7be84b09-67fd-4b07-8b3a-a38c87d33281",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot8216672110:AAH_A43Jxksp55-G_B1XZgMSNwqxbJS95CI/getFile?file_id={{ $json.fileId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        672,
+        96
+      ],
+      "id": "d41f8bf8-edce-49e4-b6e8-46c8d344397c",
+      "name": "Photofromtg"
+    },
+    {
+      "parameters": {
+        "jsCode": "const filePath = $input.item.json.result.file_path;\nconst botToken = '{{ $credentials.telegramBotToken }}';\n\n// Example code from your previous prompt (Node 5b-2)\nreturn {  json: {    photoUrl: `https://api.telegram.org/file/bot${botToken}/${filePath}`,\n    // ⬇️ THIS IS THE LIKELY CULPRIT\n    chatId: $('Code Node: Message Type Router').item.json.chatId,\n    sourceLang: $('Code Node: Message Type Router').item.json.sourceLang,\n    targetLang: $('Code Node: Message Type Router').item.json.targetLang\n  }};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        96
+      ],
+      "id": "9bf36e77-506a-465e-ae75-cb257ac27859",
+      "name": "Code in JavaScript1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Text Translation Branch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Photofromtg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Photofromtg": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "833032d3-3ffc-479b-a241-513eea3df545",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0b7286903afb49a540ec6afc5b7d1802c69eab10e30133c5f3defcc750f5e1d5"
+  },
+  "id": "52GQ5aMWjBvF1900",
+  "tags": []
+}
