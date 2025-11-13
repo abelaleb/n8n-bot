@@ -3,65 +3,16 @@
   "nodes": [
     {
       "parameters": {
-        "updates": [
-          "message"
-        ],
-        "additionalFields": {}
-      },
-      "type": "n8n-nodes-base.telegramTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        0,
-        0
-      ],
-      "id": "f48d3874-456f-4b92-a58c-4043feaa05df",
-      "name": "Telegram Trigger",
-      "webhookId": "1cd6ff5a-9edd-484e-b035-aed46c945351",
-      "credentials": {
-        "telegramApi": {
-          "id": "v9m47meNWizlZXH7",
-          "name": "telegramBotToken"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Extract message data\nconst message = $input.item.json.message;\nconst chatId = message.chat.id;\nconst messageId = message.message_id;\n\n// Initialize output object\nlet output = {\n  chatId: chatId,\n  messageId: messageId,\n  messageType: 'unknown'\n};\n\n// Check for text message\nif (message.text) {\n  const hasAmharic = /[\\u1200-\\u137F]/.test(message.text);\n  output.messageType = 'text';\n  output.text = message.text;\n  output.sourceLang = hasAmharic ? 'Amharic' : 'English';\n  output.targetLang = hasAmharic ? 'English' : 'Amharic';\n}\n\n// Check for photo message\nelse if (message.photo && message.photo.length > 0) {\n  const photo = message.photo[message.photo.length - 1]; // Get largest photo\n  output.messageType = 'photo';\n  output.fileId = photo.file_id;\n  output.sourceLang = 'auto-detect';\n  output.targetLang = 'English'; // Default for images\n}\n\n// Check for voice message\nelse if (message.voice) {\n  output.messageType = 'voice';\n  output.fileId = message.voice.file_id;\n  output.duration = message.voice.duration;\n  output.sourceLang = 'auto-detect';\n  output.targetLang = 'English'; // Will detect after transcription\n}\n\nreturn { json: output };\n"
+        "jsCode": "// Extract message data\nconst message = $input.item.json.message;\nconst chatId = message.chat.id;\nconst messageId = message.message_id;\n\n// Initialize output object\nlet output = {\n  chatId: chatId,\n  messageId: messageId,\n  messageType: 'unknown'\n};\n\n// Check for text message\nif (message.text) {\n  const hasAmharic = /[\\u1200-\\u137F]/.test(message.text);\n  output.messageType = 'text';\n  output.text = message.text;\n  output.sourceLang = hasAmharic ? 'Amharic' : 'English';\n  output.targetLang = hasAmharic ? 'English' : 'Amharic';\n}\n\n// Check for photo message\nelse if (message.photo && message.photo.length > 0) {\n  const photo = message.photo[message.photo.length - 1]; // Get largest photo\n  output.messageType = 'photo';\n  output.fileId = photo.file_id;\n  output.sourceLang = 'auto-detect';\n  output.targetLang = 'English'; // Default for images\n}\n\n// Check for voice message\nelse if (message.audio) {\n  output.messageType = 'audio';\n  output.fileId = message.audio.file_id;\n  output.duration = message.audio.duration;\n  output.sourceLang = 'auto-detect';\n  output.targetLang = 'English'; // Will detect after transcription\n}\nelse if (message.voice) {\n  output.messageType = 'voice';\n  output.fileId = message.voice.file_id;\n  output.duration = message.voice.duration;\n  output.sourceLang = 'auto-detect';\n  output.targetLang = 'English'; // Will detect after transcription\n}\n\nreturn { json: output };\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        208,
-        0
+        112,
+        96
       ],
       "id": "96a113f6-add8-4560-a358-4a4aa90c491a",
       "name": "Code in JavaScript"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"Translate the following text from {{ $json.sourceLang }} to {{ $json.targetLang }}. Only provide the translation, no explanations:\\n\\n{{ $json.text }}\"\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.3,\n    \"maxOutputTokens\": 500\n  }\n}\n",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.3,
-      "position": [
-        752,
-        -96
-      ],
-      "id": "dd7b5341-3727-4727-b2e8-58335913db51",
-      "name": "Text Translation Branch",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "elJMLjeple6DNATe",
-          "name": "Header Auth account 2"
-        }
-      }
     },
     {
       "parameters": {
@@ -127,6 +78,31 @@
                   {
                     "id": "143079d1-acb9-4027-9a94-405ad13fb804",
                     "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "eb11d154-a080-42a6-84a6-8105736880e0",
+                    "leftValue": "={{ $json.messageType }}",
                     "rightValue": "voice",
                     "operator": {
                       "type": "string",
@@ -172,53 +148,335 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.3,
       "position": [
-        400,
-        -16
+        272,
+        320
       ],
       "id": "7be84b09-67fd-4b07-8b3a-a38c87d33281",
       "name": "Switch"
     },
     {
       "parameters": {
-        "url": "=https://api.telegram.org/bot8216672110:AAH_A43Jxksp55-G_B1XZgMSNwqxbJS95CI/getFile?file_id={{ $json.fileId }}",
+        "chatId": "={{ $item(\"0\").$node[\"Switch\"].json[\"chatId\"] }}",
+        "text": "={{ $json.candidates[0].content.parts[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1184,
+        -64
+      ],
+      "id": "78210030-f15a-4754-8abb-943c59d41023",
+      "name": "Send a text message",
+      "webhookId": "ede79db4-78c2-4e07-a8a2-6ded0159b0ff",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.fileId }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        640,
+        240
+      ],
+      "id": "06574304-fd97-4f4d-8718-681d5f699c56",
+      "name": "get-audio",
+      "webhookId": "ee7e87f4-c317-450a-950c-dacca9986c67",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatid }}",
+        "text": "Try again! :)",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        528,
+        656
+      ],
+      "id": "aed055e0-98bd-4c57-94c5-111982917b2c",
+      "name": "senderror",
+      "webhookId": "8f94de9a-3101-47de-a331-ae37ab2166e5",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.content.parts[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1168,
+        576
+      ],
+      "id": "293b9519-f009-42ed-b525-f516da8a87e9",
+      "name": "Send a text message2",
+      "webhookId": "f0cb946b-ccf5-4bae-aebe-1988d9a005f0",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash-lite"
+        },
+        "text": "Translate the text in the image. If the text is in Amharic, translate it to English. If the text is in English, translate it to Amharic. If no text is provided, respond only with the phrase 'NO INPUT TEXT'. Provide only the translated text or the required phrase, and no other explanation, commentary, or introduction.",
+        "inputType": "binary",
+        "simplify": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        160
+      ],
+      "id": "d7d646c9-2997-4a5d-8c5a-ca23eae15a43",
+      "name": "Analyze-image",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "rDXLcBseyLDzP8vL",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash-lite"
+        },
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        880,
+        528
+      ],
+      "id": "462cbd2a-b7c9-49c5-aaee-e51af1a587d3",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "rDXLcBseyLDzP8vL",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash-lite"
+        },
+        "text": "Transcribe the auido to text. Translate the text in the audio. If the text is in Amharic, translate it to English. If the text is in English, translate it to Amharic. If no text is provided, respond only with the phrase 'NO INPUT TEXT'. Provide only the translated text or the required phrase, and no other explanation, commentary, or introduction.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        944,
+        320
+      ],
+      "id": "c03d54c7-13fd-443a-9cd7-ef60b791b2aa",
+      "name": "Transcribe-audio",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "rDXLcBseyLDzP8vL",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('send').item.json.message.chat.id }}",
+        "text": "={{ $json.content.parts[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1280,
+        352
+      ],
+      "id": "d1518d54-e9d4-4a0e-ba2f-6b18b7500dbc",
+      "name": "Send a text message3",
+      "webhookId": "27757591-3507-416a-a4a7-1426e750859b",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"Translate the following text from {{ $json.sourceLang }} to {{ $json.targetLang }}. Only provide the translation, no explanations:\\n\\n{{ $json.text }}\"\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.3,\n    \"maxOutputTokens\": 500\n  }\n}\n",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        672,
-        96
+        640,
+        -48
       ],
-      "id": "d41f8bf8-edce-49e4-b6e8-46c8d344397c",
-      "name": "Photofromtg"
+      "id": "dd7b5341-3727-4727-b2e8-58335913db51",
+      "name": "Text-translate",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "elJMLjeple6DNATe",
+          "name": "Header Auth account 2"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "const filePath = $input.item.json.result.file_path;\nconst botToken = '{{ $credentials.telegramBotToken }}';\n\n// Example code from your previous prompt (Node 5b-2)\nreturn {  json: {    photoUrl: `https://api.telegram.org/file/bot${botToken}/${filePath}`,\n    // ⬇️ THIS IS THE LIKELY CULPRIT\n    chatId: $('Code Node: Message Type Router').item.json.chatId,\n    sourceLang: $('Code Node: Message Type Router').item.json.sourceLang,\n    targetLang: $('Code Node: Message Type Router').item.json.targetLang\n  }};"
+        "resource": "file",
+        "fileId": "={{ $json.fileId }}",
+        "download": "=",
+        "additionalFields": {}
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
       "position": [
-        880,
+        592,
+        464
+      ],
+      "id": "d15f6633-5b9c-4e35-bc18-3d256901da5a",
+      "name": "getVoice",
+      "webhookId": "5ca3bb1f-ff88-4d06-821a-f10ecd060927",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -112,
         96
       ],
-      "id": "9bf36e77-506a-465e-ae75-cb257ac27859",
-      "name": "Code in JavaScript1"
+      "id": "f48d3874-456f-4b92-a58c-4043feaa05df",
+      "name": "send",
+      "webhookId": "1cd6ff5a-9edd-484e-b035-aed46c945351",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.fileId }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        752,
+        112
+      ],
+      "id": "5db56b6e-9188-46d0-bdf8-fe184a96641d",
+      "name": "get-image",
+      "webhookId": "a781117d-e0b2-4eca-9009-f73c2adbd5cf",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $item(\"0\").$node[\"Switch\"].json[\"chatId\"] }}",
+        "text": "={{ $json.candidates[0].content.parts[0].text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1360,
+        160
+      ],
+      "id": "815470bb-8f9d-41a3-8c28-4de3ae0d7380",
+      "name": "send-reply",
+      "webhookId": "ede79db4-78c2-4e07-a8a2-6ded0159b0ff",
+      "credentials": {
+        "telegramApi": {
+          "id": "v9m47meNWizlZXH7",
+          "name": "telegramBotToken"
+        }
+      }
     }
   ],
   "pinData": {},
   "connections": {
-    "Telegram Trigger": {
-      "main": [
-        [
-          {
-            "node": "Code in JavaScript",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Code in JavaScript": {
       "main": [
         [
@@ -234,25 +492,123 @@
       "main": [
         [
           {
-            "node": "Text Translation Branch",
+            "node": "Text-translate",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Photofromtg",
+            "node": "get-image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "get-audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "getVoice",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "senderror",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Photofromtg": {
+    "get-audio": {
       "main": [
         [
           {
-            "node": "Code in JavaScript1",
+            "node": "Transcribe-audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze-image": {
+      "main": [
+        [
+          {
+            "node": "send-reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe-audio": {
+      "main": [
+        [
+          {
+            "node": "Send a text message3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text-translate": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "getVoice": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-image": {
+      "main": [
+        [
+          {
+            "node": "Analyze-image",
             "type": "main",
             "index": 0
           }
@@ -260,11 +616,11 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "833032d3-3ffc-479b-a241-513eea3df545",
+  "versionId": "b748b048-f26f-43bb-8372-e1709966045a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "0b7286903afb49a540ec6afc5b7d1802c69eab10e30133c5f3defcc750f5e1d5"
